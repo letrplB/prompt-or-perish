@@ -1,0 +1,216 @@
+/* Clean modern question-bank style — for headless-Chrome PDF rendering */
+
+@page {
+  size: A4;
+  margin: 22mm 20mm 22mm 20mm;
+}
+
+:root {
+  --ink: #1a1d24;
+  --muted: #5b6573;
+  --accent: #2c5fab;
+  --accent-soft: #eaf0fa;
+  --rule: #d9dde4;
+  --easy:    #2f8a4a;
+  --medium:  #b67200;
+  --hard:    #b8364c;
+  --easy-soft:   #e8f4ec;
+  --medium-soft: #fbf2dc;
+  --hard-soft:   #f7e3e8;
+  --code-bg: #f4f5f7;
+  --answer-bg: #f6f8fc;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  font-feature-settings: "kern" 1, "liga" 1, "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Headings */
+h1, h2, h3, h4 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  line-height: 1.25;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+h1 {
+  font-size: 22pt;
+  margin: 0 0 6pt 0;
+  padding-bottom: 6pt;
+  border-bottom: 2px solid var(--accent);
+  color: var(--accent);
+}
+
+/* Difficulty bands — colour-coded */
+h2 {
+  font-size: 13pt;
+  margin: 22pt 0 10pt 0;
+  padding: 6pt 12pt;
+  color: white;
+  border-radius: 4px;
+  background: var(--muted);
+  page-break-after: avoid;
+}
+
+/* Detect difficulty by exact text match — auto-colour the band */
+h2:has-text("Easy"), h2:first-of-type {
+  background: var(--easy);
+}
+
+/* Fallback for browsers without :has — use child IDs (pandoc auto-generates) */
+h2[id^="easy"]      { background: var(--easy); }
+h2[id^="medium"]    { background: var(--medium); }
+h2[id^="hard"]      { background: var(--hard); }
+h2[id^="questions"] { background: var(--accent); }
+
+/* Question title */
+h3 {
+  font-size: 11.5pt;
+  margin: 14pt 0 6pt 0;
+  padding-left: 10pt;
+  border-left: 3px solid var(--accent);
+  color: var(--ink);
+  page-break-after: avoid;
+}
+
+h4 {
+  font-size: 10.5pt;
+  margin: 10pt 0 4pt 0;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+/* Paragraphs */
+p {
+  margin: 0 0 7pt 0;
+  orphans: 3;
+  widows: 3;
+}
+
+/* The "Q"/"A" labels are bold inline — keep them visible */
+strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+em {
+  font-style: italic;
+}
+
+/* Lead blockquote — Quelle / topic info */
+blockquote {
+  margin: 10pt 0 18pt 0;
+  padding: 10pt 14pt;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  color: var(--ink);
+  font-size: 10pt;
+  page-break-inside: avoid;
+}
+blockquote p { margin: 0; }
+blockquote em {
+  display: block;
+  font-style: italic;
+  color: var(--muted);
+  margin-top: 4pt;
+}
+
+/* Lists */
+ul, ol {
+  margin: 0 0 9pt 0;
+  padding-left: 18pt;
+}
+ul li, ol li {
+  margin: 0 0 3pt 0;
+}
+ul ul, ol ol, ul ol, ol ul {
+  margin: 3pt 0;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10pt 0 14pt 0;
+  font-size: 9.5pt;
+  page-break-inside: avoid;
+}
+thead th {
+  text-align: left;
+  font-weight: 600;
+  background: var(--accent-soft);
+  border-bottom: 1.5px solid var(--accent);
+  padding: 6pt 8pt;
+  color: var(--ink);
+}
+tbody td {
+  padding: 5pt 8pt;
+  border-bottom: 0.5px solid var(--rule);
+  vertical-align: top;
+}
+tbody tr:nth-child(even) td {
+  background: #fafbfc;
+}
+
+/* Code */
+code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 9.2pt;
+  background: var(--code-bg);
+  padding: 1pt 4pt;
+  border-radius: 3px;
+  color: #2c3340;
+}
+pre {
+  background: var(--code-bg);
+  padding: 8pt 10pt;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 9pt;
+  line-height: 1.45;
+  margin: 8pt 0 12pt 0;
+  page-break-inside: avoid;
+}
+pre code {
+  background: transparent;
+  padding: 0;
+}
+
+/* Horizontal rule between question groups (not used heavily here) */
+hr {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 14pt 0;
+}
+
+/* Links */
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--accent);
+}
+
+/* Keep each question (h3 + body) together when possible */
+h3 + p,
+h3 + p + p {
+  page-break-before: avoid;
+}
+
+/* Print-specific tweaks */
+@media print {
+  h1 { page-break-before: avoid; }
+  h2 { page-break-before: auto; page-break-after: avoid; }
+  h3 { page-break-after: avoid; }
+  table, blockquote, pre { page-break-inside: avoid; }
+}

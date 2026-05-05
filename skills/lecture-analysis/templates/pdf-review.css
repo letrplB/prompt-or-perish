@@ -1,0 +1,226 @@
+/* Clean modern review document style — for headless-Chrome PDF rendering */
+
+@page {
+  size: A4;
+  margin: 22mm 20mm 22mm 20mm;
+}
+
+:root {
+  --ink: #1a1d24;
+  --muted: #5b6573;
+  --accent: #2c5fab;
+  --accent-soft: #eaf0fa;
+  --rule: #d9dde4;
+  --code-bg: #f4f5f7;
+  --warn-bg: #fff8e6;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  font-feature-settings: "kern" 1, "liga" 1, "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  max-width: 100%;
+}
+
+/* Headings */
+h1, h2, h3, h4 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  line-height: 1.25;
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+h1 {
+  font-size: 22pt;
+  margin: 0 0 6pt 0;
+  padding-bottom: 6pt;
+  border-bottom: 2px solid var(--accent);
+  color: var(--accent);
+}
+
+h2 {
+  font-size: 14.5pt;
+  margin: 22pt 0 8pt 0;
+  padding-top: 4pt;
+  color: var(--accent);
+  border-top: 1px solid var(--rule);
+  padding-top: 14pt;
+}
+
+h2:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+h3 {
+  font-size: 12pt;
+  margin: 16pt 0 6pt 0;
+  color: var(--ink);
+}
+
+h4 {
+  font-size: 10.5pt;
+  margin: 10pt 0 4pt 0;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+/* Paragraphs */
+p {
+  margin: 0 0 8pt 0;
+  orphans: 3;
+  widows: 3;
+}
+
+/* Strong emphasis */
+strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Italics for stylistic / book / German emphasis */
+em {
+  font-style: italic;
+}
+
+/* Blockquote — used for the document subtitle/lead */
+blockquote {
+  margin: 10pt 0 14pt 0;
+  padding: 10pt 14pt;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  color: var(--ink);
+  font-size: 10.5pt;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+blockquote p {
+  margin: 0;
+}
+
+blockquote em {
+  display: block;
+  font-style: italic;
+  color: var(--muted);
+  margin-top: 4pt;
+}
+
+/* Lists */
+ul, ol {
+  margin: 0 0 10pt 0;
+  padding-left: 18pt;
+}
+
+ul li, ol li {
+  margin: 0 0 3pt 0;
+}
+
+ul ul, ol ol, ul ol, ol ul {
+  margin: 3pt 0;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10pt 0 14pt 0;
+  font-size: 9.5pt;
+  page-break-inside: avoid;
+}
+
+thead th {
+  text-align: left;
+  font-weight: 600;
+  background: var(--accent-soft);
+  border-bottom: 1.5px solid var(--accent);
+  padding: 6pt 8pt;
+  color: var(--ink);
+}
+
+tbody td {
+  padding: 5pt 8pt;
+  border-bottom: 0.5px solid var(--rule);
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) td {
+  background: #fafbfc;
+}
+
+/* Inline code and code blocks */
+code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 9.2pt;
+  background: var(--code-bg);
+  padding: 1pt 4pt;
+  border-radius: 3px;
+  color: #2c3340;
+}
+
+pre {
+  background: var(--code-bg);
+  padding: 8pt 10pt;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 9pt;
+  line-height: 1.45;
+  margin: 8pt 0 12pt 0;
+  page-break-inside: avoid;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+}
+
+/* Horizontal rule — already used by markdown for section separation */
+hr {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 18pt 0;
+}
+
+/* Links — keep visible but subtle */
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--accent);
+}
+
+/* Document metadata / first paragraph block */
+.metadata {
+  font-size: 9.5pt;
+  color: var(--muted);
+  margin-bottom: 14pt;
+}
+
+/* Print-specific tweaks */
+@media print {
+  h1 { page-break-before: avoid; }
+  h2 { page-break-before: auto; }
+  table, blockquote, pre { page-break-inside: avoid; }
+  ul, ol { page-break-inside: auto; }
+}
+
+/* Footer / generated note */
+.footer-note {
+  margin-top: 24pt;
+  padding-top: 8pt;
+  border-top: 0.5px solid var(--rule);
+  font-size: 8.5pt;
+  color: var(--muted);
+  text-align: center;
+}
