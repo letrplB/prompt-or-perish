@@ -59,7 +59,43 @@ Each `SKILL.md` documents its arguments, phases, and output structure.
 
 `paper-review` and `session-host` work out of the box using Claude Code's built-in `WebSearch` and `WebFetch`. They get sharper if you also configure a paper-retrieval MCP — one that exposes tools like `search_papers`, `get_paper_metadata`, `get_full_text`, and (ideally) `get_citation_graph`. Any MCP that follows that surface area drops in.
 
+Example `.mcp.json` entry, using the `@sura_ai/papers` npm package (GitHub repo to follow):
+
+```json
+{
+  "mcpServers": {
+    "papers": {
+      "command": "bunx",
+      "args": ["@sura_ai/papers@latest"],
+      "env": {
+        "CORE_API_KEY": "<your CORE API key>"
+      }
+    }
+  }
+}
+```
+
 If you don't have one configured, the skills detect that and fall back to web search — verification confidence is noted as reduced in the report.
+
+### Optional: chemistry MCP
+
+For chemistry-heavy use of `paper-review`, `exam-solutions`, or `lecture-analysis`, a chemistry MCP that resolves compounds, CAS numbers, and InChI keys helps the agents verify nomenclature and structures.
+
+Example `.mcp.json` entry, using the `@sura_ai/chemistry` npm package (GitHub repo to follow):
+
+```json
+{
+  "mcpServers": {
+    "chemistry": {
+      "command": "bunx",
+      "args": ["@sura_ai/chemistry@latest"],
+      "env": {
+        "CHEMISTRY_USER_AGENT": "<your-app-name>/0.1"
+      }
+    }
+  }
+}
+```
 
 ### Optional: local literature index
 
