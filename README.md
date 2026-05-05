@@ -4,8 +4,6 @@ A small library of [Claude Code](https://docs.anthropic.com/en/docs/claude-code/
 
 These skills were built and used in real research and teaching workflows, then scrubbed of any platform-specific assumptions so they work as plain Claude Code skills against the local filesystem.
 
-> The name is half-joke, half-warning. Publish, prompt, or perish — pick two.
-
 ## What's inside
 
 | Skill | What it does |
