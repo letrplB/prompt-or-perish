@@ -21,7 +21,7 @@ Invoke when the user:
 ## Inputs
 
 **Required:**
-- Path to an HTML deck (single file; `<section class="slide">` elements, optional `<script id="speaker-notes">` JSON)
+- Path to an HTML deck: a single file, or a deck folder whose lecture/talk file loads separate scene or style modules. The slide markup, notes and numbering conventions are detected in Pass 1 (§1.0), not assumed.
 
 **Strongly recommended — ASK before proceeding if missing:**
 - **Audience** — specific. "A 20-person chemistry group at Uni X" beats "scientists".
@@ -51,6 +51,19 @@ The persistent artifact is **`{deckname}.REVIEW.md`** — created next to the HT
 ## Pass 1 — Diagnose
 
 Solo, main thread. No subagents yet. Goal: understand the deck whole.
+
+### 1.0 · Detect the deck's conventions
+Before parsing, read the deck's head, the first few slides and any linked deck config or engine docs (`deck.json`, README, an authoring guide). Record the answers at the top of §1 as **Deck conventions**. Every later pass, every subagent prompt and every manifest follows them:
+
+- **Slide element**: the selector that marks one slide (e.g. `section.slide`, a web component's children)
+- **Title**: where a slide's title lives (a heading element, a `data-title` attribute, …)
+- **Speaker notes**: a positional array (e.g. `<script id="speaker-notes">` JSON, index = slide order) **or** per-slide (e.g. a `data-notes` attribute, an `<aside class="notes">`). Positional notes need re-indexing after inserts/cuts; per-slide notes move with their slide.
+- **Stable slide IDs**: present? (e.g. `data-id`). If the deck has a tool that mints them, new slides get theirs from that tool, never hand-written.
+- **Section labels and numbering**: hard-coded (`§` spans, folios) or computed by the engine at runtime
+- **Builds and scenes**: click steps (e.g. `data-step`) and any JS scene modules that draw slide content. Changing a scene's steps means editing that module, not just the HTML.
+- **Files**: single file, or the slide file plus which modules it loads
+
+See [Known deck conventions](#known-deck-conventions) for two common patterns. If a convention is unclear, ask the user once rather than guessing.
 
 ### 1.1 · Parse and inventory
 Extract all slides. Build a table:
@@ -172,6 +185,8 @@ REVIEW PLAN: {absolute path to REVIEW.md}
 YOUR SCOPE: slides {list} — {theme}
 AUDIENCE: {audience}
 DECK THESIS: {thesis}
+DECK CONVENTIONS: {the Deck conventions block from §1: slide element, title,
+  notes, stable IDs, numbering, builds/scenes, files}
 
 Your task:
 1. Read the deck file. Locate your assigned slides.
@@ -184,8 +199,10 @@ Your task:
    - D5 text density
    - D6 imprecision audit
    - D7 visual-speech competition
-4. For any new slides in your scope, draft full HTML using the same class
-   conventions as the surrounding deck. Match the existing editorial style.
+4. For any new slides in your scope, draft full HTML using the same markup
+   and class conventions as the surrounding deck (DECK CONVENTIONS): notes
+   where the deck keeps them, no hand-written stable IDs. Match the existing
+   editorial style.
 5. Produce a PATCH MANIFEST (see format below). DO NOT EDIT THE HTML.
 
 Write your manifest into REVIEW.md under the heading "### Agent X manifest"
@@ -241,7 +258,7 @@ new_slides:
     section_number: "§ 04"   # if known; orchestrator may reassign
     message: "The model has no memory — only a growing transcript."
     brief: "Introduce what goes into the context across turns, setting up context rot later."
-    draft_html: |
+    draft_html: |   # in the deck's own slide markup (see Deck conventions)
       <section class="slide light" data-label="Context Accumulation">
         ...
       </section>
@@ -261,7 +278,7 @@ restructure:
 # Cross-cutting concerns the orchestrator must resolve
 conflicts_expected:
   - "This scope inserts 1 new slide; downstream § labels shift by +1."
-  - "Speaker notes array index shifts by +1 for all later entries."
+  - "Positional notes only: speaker notes array index shifts by +1 for all later entries."
 ```
 ````
 
@@ -290,8 +307,9 @@ Re-read REVIEW.md §4 to collect every agent's manifest.
 Walk every manifest and flag:
 - **Same slide** edited by two agents (shouldn't happen if scopes are disjoint; if it does, ask user)
 - **Adjacent inserts** that collide on position (e.g., "after_slide_05" from both A and B)
-- **Speaker-note indices** — any new slide insertion shifts all downstream indices; multiple insertions compound
-- **Global renumber** — sum inserts and cuts to compute final `§` labels and folio counts
+- **Speaker-note indices** (positional notes only) — any new slide insertion shifts all downstream indices; multiple insertions compound
+- **Global renumber** (hard-coded numbering only) — sum inserts and cuts to compute final `§` labels and folio counts
+- **Scene modules** — two agents changing slides that share one scene module, or a step change that the module must follow
 
 ### 4.3 · Resolve, plan the sequence
 For a conflict-free plan, compute an **application order**:
@@ -300,18 +318,19 @@ For a conflict-free plan, compute an **application order**:
 2. In-place edits (titles, body copy, speaker notes) — each an independent Edit.
 3. Reorders — treat as cut + insert.
 4. Merges / splits — edit in place, then adjust siblings.
-5. New slide insertions — bottom-up (highest-numbered position first) to avoid cascading renumber.
-6. Global renumber pass — `§` labels and folios across the whole deck in one Python/Bash script.
-7. Speaker notes array — rebuild indices to match final slide count.
+5. New slide insertions — bottom-up (highest-numbered position first) to avoid cascading renumber. If the deck uses stable slide IDs, mint them for new slides with the deck's own tool.
+6. Global renumber pass — only if numbering is hard-coded: `§` labels and folios across the whole deck in one Python/Bash script.
+7. Positional speaker notes only — rebuild the array to match the final slide count. Per-slide notes need no step.
 
-Each step is a single Edit (or one Bash command for the renumber script). Nothing parallel.
+Each step is a single Edit (or one Bash command for the renumber script or ID tool). Nothing parallel.
 
 ### 4.4 · Apply
-Execute the sequence. After each meaningful group of edits, re-grep for `<section` and § labels to confirm state.
+Execute the sequence. After each meaningful group of edits, re-grep for the slide element (and § labels, if hard-coded) to confirm state.
 
 ### 4.5 · Validation pass
 After all edits, run:
-- **Structural sanity**: section count, `§` label sequence, folio sequence, speaker-note count all match.
+- **Structural sanity**: slide count matches the plan; where applicable, `§` label and folio sequences are continuous, the positional notes count equals the slide count, and stable IDs are unique.
+- **Render check**: if the deck has a QA or preview tool, run it; otherwise open the deck in a browser and step through every touched slide, including its builds.
 - **Quick D1–D2 sweep**: for every touched slide, confirm the new title is a message (or intentionally not) and the slide has one distillable message.
 - **Red line regression**: re-list new messages; does the arc still read as a story?
 
@@ -330,9 +349,11 @@ Section count: before {X} → after {Y}.
 - ...
 
 ### Validation
-- Section labels: sequential ✓
-- Folios: sequential ✓
-- Speaker notes: {count} aligned with {count} slides ✓
+- Section labels: sequential ✓ (if hard-coded)
+- Folios: sequential ✓ (if hard-coded)
+- Speaker notes: {count} aligned with {count} slides ✓ (if positional)
+- Stable IDs: unique, new ones minted by the deck's tool ✓ (if used)
+- Render check: {tool or browser} ✓
 - D1 sweep: {N/N} slides have clear single messages.
 
 ### Red line after refinement
@@ -442,9 +463,15 @@ Subagents **never** edit the HTML. They only write manifests into REVIEW.md. Thi
 - Between Pass 3 and Pass 4: show the aggregated manifests, let user cherry-pick which changes to apply (or apply all).
 - After Pass 4: show the change log and validation, offer targeted follow-up.
 
-## Parsing tips
-- One `<section>` per slide.
-- Speaker notes: `<script type="application/json" id="speaker-notes">` → JSON array, index aligned with slide order.
-- `§` labels in `<span class="sect">`; folios in `.foot` spans.
-- `data-label="..."` on sections gives short semantic labels useful for the inventory.
-- For rendered preview, the deck usually uses a `<deck-stage>` web component that auto-counts children.
+## Known deck conventions
+Two patterns this skill has been used on. Treat them as examples; §1.0 decides what the deck in front of you does.
+
+| | Single-file deck | Scene-engine deck |
+|---|---|---|
+| Slide | one `<section>` per slide, often inside a `<deck-stage>` web component that auto-counts children | `section.slide` in a lecture/talk HTML file |
+| Title / label | heading in the slide; `data-label` gives a short semantic label | `data-title` (also shown in the footer), optional `data-section` |
+| Notes | `<script type="application/json" id="speaker-notes">`: JSON array, index aligned with slide order | per-slide `data-notes`; optional `data-bridge` line to the next slide |
+| Stable IDs | none | `data-id`, minted by the engine's ID tool, never hand-edited |
+| Numbering | `§` labels in `<span class="sect">`, folios in `.foot` spans | computed at runtime |
+| Builds | usually none or CSS-only | `data-step` / `data-until` on elements; scene functions in separate JS modules draw per step |
+| Render check | open in a browser | the engine's QA tool (screenshots every slide and step) |

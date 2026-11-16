@@ -1,12 +1,12 @@
 ---
 name: exam-solutions
-description: Generate correction templates for exams from .docx files. Extracts questions, researches solutions, and produces structured markdown documents with model answers, point distribution, and grading rubrics. Uses parallel agent teams (one per question). Auto-detects the exam language and writes output in that language.
+description: Generate correction templates for exams from .docx files. Extracts questions, researches solutions, and produces structured markdown documents with model answers, point distribution, and grading rubrics. Uses parallel subagents (one per question). Auto-detects the exam language and writes output in that language.
 argument-hint: [path to exam .docx file] [--output dir/]
 ---
 
 # Exam Correction Template Generator
 
-Generate structured correction templates for exams. Extracts the exam from a .docx file, parses questions and point allocations, researches and solves each question via a parallel agent team, and produces rich markdown documents with model answers and grading rubrics.
+Generate structured correction templates for exams. Extracts the exam from a .docx file, parses questions and point allocations, researches and solves each question via parallel subagents, and produces rich markdown documents with model answers and grading rubrics.
 
 **Key principle:** Agents propose solutions first; the orchestrator reviews with the user before agents commit them to disk. Each agent writes its own per-question markdown file after approval.
 
@@ -29,11 +29,11 @@ Invoke when the user:
 
 **Determined during workflow (ask if needed):**
 - Which questions to solve (all or a selection)
-- Point distribution strategy (clarified before team dispatch)
+- Point distribution strategy (clarified before agent dispatch)
 
 ## Phase 1: Extract & Parse the Exam
 
-1. Install `python-docx` if not available (`pip3 install --break-system-packages python-docx`)
+1. Use a project-local `.venv` rather than installing Python packages globally. If `python-docx` is missing, install it with `.venv/bin/pip install python-docx` (create the venv first with `python3 -m venv .venv` if needed)
 2. Extract full text from the .docx using Python + `python-docx`
 3. Parse and identify:
    - **Exam metadata:** title, course name, date, location, time/duration, institute, instructor, allowed materials, total points
@@ -82,27 +82,23 @@ Present the extracted exam structure to the user in a clear table:
 5. **Output location:** Confirm or override the default output directory.
 6. **Language confirmation** (only if detection is uncertain)
 
-**Do NOT proceed to team dispatch until the user has confirmed the structure and point distribution strategy.**
+**Do NOT proceed to agent dispatch until the user has confirmed the structure and point distribution strategy.**
 
-## Phase 3: Team Planning
+## Phase 3: Dispatch Planning
 
-**CRITICAL: Use a real agent team (TeamCreate + SendMessage), NOT standalone subagents (Agent tool).**
+**CRITICAL: Resume each solution agent with `SendMessage`. Never spawn a fresh agent for its revision or write step.**
 
-Why: Each solution agent needs persistent context across two phases — (1) solve and propose, then (2) receive feedback and finalize. With standalone subagents, context is lost between invocations and "resume" is a lossy workaround. A real team keeps each agent's full research context alive throughout the review → feedback → revision → write cycle. This is especially important when the user requests corrections — the agent needs its complete solution context to revise efficiently.
+Why: Each solution agent needs persistent context across two phases: (1) solve and propose, then (2) receive feedback and finalize. An agent resumed with `SendMessage` (addressed to its name or ID) keeps its full conversation history, including its research and solution. A new `Agent` call starts from nothing. This matters most when the user requests corrections, because the agent needs its complete solution context to revise efficiently.
 
-Create an agent team with **one solution agent per question** (or per question group if the user specified).
+Plan **one solution agent per question** (or per question group if the user specified).
 
-```
-TeamCreate: exam-solutions-{exam-name}
-```
-
-**Team structure:**
+**Roles:**
 - **You (orchestrator):** Parse exam, clarify with user, dispatch agents, review solutions, write the overview document
 - **N solution agents** (one per question): Research, solve, propose solution, then write the per-question markdown file after approval
 
 ## Phase 4: Agent Dispatch
 
-Spawn all solution agents in parallel using `SendMessage` with the team name and `run_in_background: true`.
+Spawn all solution agents in parallel with the `Agent` tool: one call per question, all in the same message, each running in the background. Name each agent `question-NN`, or keep the agent ID each call returns. You need the name or ID to reply to that agent later.
 
 Each agent receives the full prompt from the [Solution Agent Template](#solution-agent-template) below, customized with:
 - The specific question text (full, verbatim)
@@ -113,13 +109,13 @@ Each agent receives the full prompt from the [Solution Agent Template](#solution
 - The output directory and the agent's target filename
 - Any special instructions from the user for this question
 
-**Dispatch all agents simultaneously** — they work in parallel and send their summaries back via SendMessage when done with Phase 1.
+**Dispatch all agents simultaneously.** They work in parallel. Each one ends its Phase 1 by returning its proposed-solution summary as its final message, then waits to be resumed.
 
 ## Phase 5: Review & Approve
 
 Each agent follows a two-phase workflow: **solve first, then write the markdown file after orchestrator + user approval.**
 
-When an agent sends its proposed solution summary via SendMessage:
+When an agent's proposed-solution summary arrives:
 
 1. **Present to the user** with a concise summary:
    - Question number and topic
@@ -129,17 +125,17 @@ When an agent sends its proposed solution summary via SendMessage:
    - Confidence assessment (is the agent sure about the solution?)
 
 2. **User review:**
-   - If the user approves: send confirmation to the agent via SendMessage to proceed to writing the markdown file
-   - If corrections needed: send specific feedback via SendMessage — the agent revises using its full research context (this is why real teams matter)
+   - If the user approves: `SendMessage` the agent (by name or ID) to proceed to writing the markdown file
+   - If corrections are needed: `SendMessage` the agent specific feedback. The resumed agent revises using its full research context (this is why it is resumed, not respawned)
    - Batch multiple question reviews when agents finish close together
 
-3. **After approval:** The agent writes its per-question markdown file and sends back the relative path via SendMessage
+3. **After approval:** The agent writes its per-question markdown file and reports the relative path in its final message
 
 4. **Collect file paths** for the overview document
 
 **Why agents write directly:** Avoids transferring full solution content through orchestrator context. The agent has the complete solution — let it write directly after approval.
 
-**Why real teams, not subagents:** The review → feedback → write cycle requires agents to maintain their full research and solution context. With SendMessage, the orchestrator can send corrections and the agent revises in-place with everything still in memory. With standalone subagents, resuming loses context momentum and makes iterative feedback clunky.
+**Why resume, not respawn:** The review → feedback → write cycle requires agents to maintain their full research and solution context. With `SendMessage`, the orchestrator sends corrections and the same agent revises in place with everything still in its history. A freshly spawned agent would have to re-derive the solution from the question alone.
 
 ## Phase 6: Overview Document
 
@@ -173,11 +169,9 @@ Once all agents have written their per-question files, write the **overview docu
 _Generated by the exam-solutions skill._
 ```
 
-## Phase 7: Cleanup
+## Phase 7: Wrap-up
 
-1. Shut down all agents
-2. Clean up team resources
-3. Present final summary to the user:
+Agents stop on their own once they have reported their file path, so there is nothing to shut down. Present the final summary to the user:
    - Path to the overview document
    - List of all question files
    - Any questions that need follow-up attention
@@ -189,7 +183,7 @@ _Generated by the exam-solutions skill._
 Below is the template for each solution agent's prompt. Replace `{{placeholders}}` with actual values.
 
 ```
-You are an exam solution specialist on a team creating a correction template for a university exam. Your job is to solve ONE specific exam question thoroughly and accurately, then write a polished solution markdown file.
+You are one of several exam solution agents creating a correction template for a university exam. Your job is to solve ONE specific exam question thoroughly and accurately, then write a polished solution markdown file.
 
 ## Your Question
 
@@ -256,16 +250,16 @@ Concise notes on which alternative approaches or formulations also earn full cre
 - Ensure the solution matches the expected depth for the course level
 - Confirm language matches the exam language throughout
 
-#### Step 5: Send Summary to Orchestrator
+#### Step 5: Return a Summary to the Orchestrator
 
-Send a concise summary including:
+End this phase by returning a concise summary as your final message, including:
 - Question number and topic
 - Key points of the model answer (not the full solution)
 - Point distribution rubric overview
 - Any uncertainties or questions about the expected answer
 - Confirmation that the full solution is ready
 
-**Do NOT send the complete solution text.** The orchestrator needs enough to verify correctness and present to the user. Wait for confirmation before Phase 2.
+**Do NOT return the complete solution text.** The orchestrator needs enough to verify correctness and present to the user. Do not write the file yet: the orchestrator will resume you with a message that either approves or asks for corrections.
 
 ### PHASE 2: Write the Markdown File
 
@@ -319,7 +313,7 @@ _[Brief notes on acceptable alternative answers]_
 
 #### Step 2c: Report Back
 
-After writing the file, send the orchestrator:
+After writing the file, end with a final message to the orchestrator containing:
 - The relative path to the file (e.g. `question-03.md`)
 - Confirmation that writing is complete
 
@@ -337,13 +331,12 @@ Be thorough and accurate. A correction template must be reliable — instructors
 - [ ] Confirmed point distribution strategy with user
 - [ ] Confirmed scope (which questions to solve)
 - [ ] Confirmed output directory
-- [ ] Created team and dispatched agents (Phases 3-4)
+- [ ] Dispatched one agent per question, names or IDs noted (Phases 3-4)
 - [ ] Reviewed each agent's proposed solution (Phase 5)
 - [ ] Presented solutions to user for approval
 - [ ] Agents wrote approved solution markdown files
 - [ ] Collected all file paths
 - [ ] Wrote overview README.md with exam metadata and per-question links (Phase 6)
-- [ ] Cleaned up team (Phase 7)
 - [ ] Presented final summary to user
 
 ## Design Principles

@@ -100,16 +100,16 @@ def derive_prefix(sidecar: Path, manifest: dict) -> str:
 
 
 def parse_question_filename(stem: str) -> tuple[int, str] | None:
-    """Parse 'topic-NN-XX-slug-words.questions' -> (NN, slug)."""
-    m = re.match(r"^topic-(\d+)-(\d+-.+)\.questions$", stem)
+    """Parse 'topic-NN-[XX-]slug-words.questions' -> (NN, slug)."""
+    m = re.match(r"^topic-(\d+)-((?:\d+-)?.+)\.questions$", stem)
     if not m:
         return None
     return int(m.group(1)), m.group(2)
 
 
 def parse_topic_filename(stem: str) -> tuple[int, str] | None:
-    """Parse 'topic-NN-XX-slug-words' -> (NN, slug)."""
-    m = re.match(r"^topic-(\d+)-(\d+-.+)$", stem)
+    """Parse 'topic-NN-[XX-]slug-words' -> (NN, slug)."""
+    m = re.match(r"^topic-(\d+)-((?:\d+-)?.+)$", stem)
     if not m:
         return None
     return int(m.group(1)), m.group(2)

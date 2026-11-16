@@ -2,9 +2,7 @@
 name: paper-review
 description: "Comprehensive multi-agent research paper review — reference verification, vision analysis, independent domain survey, datapoint-level claim validation. The thorough review most papers never get."
 argument-hint: "[path] — PDF or DOCX file path"
-version: "1.0"
 user-invocable: true
-context: fork
 model: opus
 ---
 
@@ -167,17 +165,9 @@ Wait for user confirmation. User may:
 
 ---
 
-## Phase 2: Dimension Analysis (Agent Team)
+## Phase 2: Dimension Analysis (Parallel Agents)
 
-### 2.1 Team Setup
-
-Create a persistent agent team:
-
-```
-TeamCreate: paper-review-{paper_slug}
-```
-
-**Team structure:**
+### 2.1 Roles
 - **You (orchestrator):** Dispatch agents, collect results, manage checkpoints
 - **6 dimension agents** (see below): Each analyzes one dimension, writes one MD file
 
@@ -192,13 +182,13 @@ Every agent receives:
 
 ### 2.3 Agent Roles & Dispatch
 
-Dispatch all 6 agents in parallel using `SendMessage` with `run_in_background: true`.
+Dispatch all 6 agents in parallel with the `Agent` tool: six calls in the same message, each running in the background. Note each agent's name or returned ID; if a dimension file needs a follow-up, resume that agent with `SendMessage` rather than spawning a new one.
 
 Each agent follows the same output protocol:
 1. Analyze their dimension
 2. Write their findings to `02_dimensions/{dimension_name}.md`
 3. Append flagged items to `flags.md` in the review workspace root
-4. Send a summary back to the orchestrator (max 500 words)
+4. Return a summary to the orchestrator as its final message (max 500 words)
 
 ---
 
@@ -208,7 +198,7 @@ Each agent follows the same output protocol:
 
 **Prompt template:**
 ```
-You are the REASONING CHAIN analyst in a comprehensive paper review team.
+You are the REASONING CHAIN analyst in a comprehensive paper review.
 
 Paper: {title}
 Your task: Map and evaluate the paper's argument architecture.
@@ -243,7 +233,7 @@ references/templates.md. Flag items as [CRITICAL], [CONCERN], [NOTE], or [USER].
 
 **Prompt template:**
 ```
-You are the DATA QUALITY analyst in a comprehensive paper review team.
+You are the DATA QUALITY analyst in a comprehensive paper review.
 
 Paper: {title}
 Your task: Evaluate the quality, rigor, and transparency of the data and methods.
@@ -286,7 +276,7 @@ Flag items as [CRITICAL], [CONCERN], [NOTE], or [USER].
 
 **Prompt template:**
 ```
-You are the CLAIM-EVIDENCE analyst in a comprehensive paper review team.
+You are the CLAIM-EVIDENCE analyst in a comprehensive paper review.
 
 Paper: {title}
 Your task: For every claim, evaluate whether the evidence actually supports it.
@@ -328,7 +318,7 @@ Write to 02_dimensions/claim_evidence.md.
 
 **Prompt template:**
 ```
-You are the DOMAIN RESEARCH agent in a comprehensive paper review team.
+You are the DOMAIN RESEARCH agent in a comprehensive paper review.
 
 Paper: {title}
 Your task: Independent literature survey of the paper's domain. Do NOT rely on
@@ -382,7 +372,7 @@ Flag missing key references as [CONCERN]. Flag potential prior art as [CRITICAL]
 
 **Prompt template:**
 ```
-You are the STRUCTURAL REVIEW agent in a comprehensive paper review team.
+You are the STRUCTURAL REVIEW agent in a comprehensive paper review.
 
 Paper: {title}
 Your task: Evaluate the paper's structure, writing, and formal integrity.
@@ -425,7 +415,7 @@ Flag items as [CRITICAL], [CONCERN], [NOTE], or [USER].
 
 **Prompt template:**
 ```
-You are the NOVELTY ASSESSMENT agent in a comprehensive paper review team.
+You are the NOVELTY ASSESSMENT agent in a comprehensive paper review.
 
 Paper: {title}
 Your task: Evaluate whether the claimed contributions are genuinely novel and significant.
@@ -623,7 +613,7 @@ User may adjust scope. Proceed with confirmed list.
 
 ### 3.4 Pass B — Deep Verification
 
-For each reference in the confirmed verification list, spawn a standalone agent (Agent tool, NOT the Phase 2 team — these are independent, focused tasks):
+For each reference in the confirmed verification list, spawn a standalone agent (`Agent` tool, separate from the Phase 2 agents — these are independent, focused tasks):
 
 **Agent prompt:**
 ```

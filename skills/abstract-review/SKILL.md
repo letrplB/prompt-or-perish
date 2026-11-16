@@ -25,7 +25,7 @@ Invoke when the user:
 
 ## Phase 1: Extract and Understand
 
-1. Install `python-docx` if not already available (`pip3 install --break-system-packages python-docx`)
+1. Use a project-local `.venv` rather than installing Python packages globally. If `python-docx` is missing, install it with `.venv/bin/pip install python-docx` (create the venv first with `python3 -m venv .venv` if needed)
 2. Extract text from the .docx using Python + `zipfile` + `xml.etree.ElementTree` (handles binary docx reliably)
 3. Inspect paragraph structure, styles, and font formatting using `python-docx` to understand the document layout
 4. Identify the abstract's components:

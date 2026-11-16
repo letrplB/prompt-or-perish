@@ -13,7 +13,7 @@ These skills were built and used in real research and teaching workflows, then s
 | **`presentation-review`** | 4-pass deck refinement (diagnose → manifest → execute → integrate). Grounded in Doumont's three laws with additions from Duarte and Reynolds. Focuses on content and structure, not visual style. |
 | **`lecture-analysis`** | End-to-end lecture-PDF analysis through 5 stackable phases: overview → ingestion (text + page renders) → parallel topical detail extraction with vision → didactic review → per-topic question banks. Optional Phase 6 renders artifacts to PDFs. |
 | **`session-host`** | Deep background research on every talk in a conference session. Finds the group leader, recent publications, and drafts 10 questions on a SAFE → HIGH-RISK spectrum the host can use if the audience goes quiet. |
-| **`exam-solutions`** | Generates correction templates / solution keys for `.docx` exams. Parses questions and points, dispatches a parallel agent team (one per question), and produces per-question markdown with model answers and grading rubrics. Auto-detects exam language. |
+| **`exam-solutions`** | Generates correction templates / solution keys for `.docx` exams. Parses questions and points, dispatches parallel subagents (one per question), and produces per-question markdown with model answers and grading rubrics. Auto-detects exam language. |
 | **`docx-forensics`** | Forensic inspection of `.docx` files to detect AI-generated content. Checks ZIP timestamps, revision-save IDs, sub/superscript rendering, citation integrity, image metadata, and prompt-leftover patterns. Produces a structured markdown report. |
 
 Each skill is self-contained under `skills/<name>/` with a `SKILL.md` and any scripts/templates it needs.
@@ -102,7 +102,7 @@ If you keep a local notes / literature folder, the skills will use it for cross-
 ## Design notes
 
 - **Markdown-first output.** Every skill writes plain markdown to a per-task workspace. No platform lock-in; export elsewhere later if you want.
-- **Parallel agent teams where it pays.** `paper-review`, `exam-solutions`, `session-host`, and `lecture-analysis` use parallel subagents or `TeamCreate` for the embarrassingly-parallel parts (per-figure, per-question, per-talk, per-topic). The orchestrator stays in the main thread for synthesis.
+- **Parallel subagents where it pays.** `paper-review`, `exam-solutions`, `session-host`, and `lecture-analysis` use parallel subagents for the embarrassingly-parallel parts (per-figure, per-question, per-talk, per-topic). The orchestrator stays in the main thread for synthesis.
 - **Pause points by design.** Heavy skills pause for user confirmation between phases (after extraction, after dispatch plan, before applying edits). You stay in the loop.
 - **Resumable.** Skills with persistent state (`paper-review`, `lecture-analysis`, `presentation-review`) write a manifest or review document next to the source so a partial run can pick up where it left off.
 

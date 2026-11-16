@@ -1,12 +1,12 @@
 ---
 name: session-host
-description: Deep research on conference talks, speakers, and their groups to prepare a session host with informed questions on a risk spectrum. Uses parallel agent teams for web research and creates structured briefing markdown documents. Use when chairing or hosting a session at a scientific conference.
+description: Deep research on conference talks, speakers, and their groups to prepare a session host with informed questions on a risk spectrum. Uses parallel background subagents for web research and creates structured briefing markdown documents. Use when chairing or hosting a session at a scientific conference.
 argument-hint: [path to session description (markdown / text)] [--output dir/]
 ---
 
 # Conference Session Host Preparation
 
-Orchestrate deep background research on conference talks to prepare a session host with informed questions. Uses parallel agent teams, web research, and produces structured markdown briefing documents.
+Orchestrate deep background research on conference talks to prepare a session host with informed questions. Uses parallel subagents, web research, and produces structured markdown briefing documents.
 
 **Key principle:** Agents own their output files. Each research agent writes its own per-talk markdown file after orchestrator confirmation. The orchestrator writes only the overview document.
 
@@ -38,52 +38,46 @@ Present a summary table to the user before proceeding:
 
 Ask if anything needs correction or if the user has additional context. Confirm the output directory (default: `briefings/<session-slug>/` next to the input).
 
-## Phase 2: Team Planning
+## Phase 2: Dispatch Planning
 
-Create an agent team with **one research specialist per talk**.
+Plan **one research agent per talk**.
 
-```
-TeamCreate: conference-research-{session-name}
-```
-
-**Team structure:**
-- **You (orchestrator):** Plan tasks, dispatch agents, review summaries, write the overview document
+**Roles:**
+- **You (orchestrator):** Plan, dispatch agents, review summaries, write the overview document
 - **N research agents** (one per talk): Deep-dive web research + write per-talk markdown file
 
-Create tasks with dependencies:
-- Task per talk (independent, can run in parallel)
-- Final consolidation task (blocked by all talk tasks)
+Track one item per talk (independent, run in parallel) plus a final consolidation item that waits for all of them.
 
 ## Phase 3: Agent Dispatch
 
-Spawn all research agents in parallel using `Task` tool with `team_name` and `run_in_background: true`.
+Spawn all research agents in parallel with the `Agent` tool: one call per talk, all in the same message, each running in the background. Name each agent after its talk (e.g. `talk-01-<presenter-slug>`), or keep the agent ID each call returns. You need the name or ID to reply to that agent later.
 
 Each agent receives the full prompt from the [Research Agent Template](#research-agent-template) below, customized with:
 - Specific talk details (title, presenter, authors)
 - The output directory and the agent's target filename
 - Suggested search queries and group leader hints
 
-**Optional broadcast — author cross-reference search:** Instruct agents to also look up prior work from the talk authors. Use whichever of these the user has configured:
+**Optional — author cross-reference search:** Include an extra last research step in the prompt: look up prior work from the talk authors. Use whichever of these the user has configured:
 
 - A paper-retrieval MCP (e.g. one that exposes `search_papers(authorName="...")`)
 - `WebSearch` with the author's name + likely topic keywords
 - A local notes / literature folder via file search (ripgrep, fzf, or any search MCP over your notes)
 
-This step is purely additive — agents should run it only after they've completed their primary research, and skip it entirely if no suitable tool is available.
+This step is purely additive. Agents run it only after they have completed their primary research, and skip it entirely if no suitable tool is available.
 
 ## Phase 4: Review & Confirm
 
-Each agent follows a two-phase workflow: **research first, then write the markdown file after confirmation.**
+Each agent follows a two-phase workflow: **research first, then write the markdown file after confirmation.** An agent ends its research phase by returning a short summary as its final message. You reply with `SendMessage` to its name or ID. That resumes the same agent with its full research context, so it can revise or write without starting over. Never spawn a fresh agent for the write step: it would have none of the research.
 
-When an agent finishes research and sends a summary:
+When an agent's research summary arrives:
 1. Review the summary for:
    - **Completeness:** Did they find the group leader, presenter profile, recent publications?
    - **Question quality:** Do questions follow the risk spectrum? Are they genuinely useful?
    - **Accuracy:** Do claims have sources? Any obvious errors?
-2. If deficient, send the agent a message with specific corrections and ask them to revise
-3. If satisfactory, **confirm the agent should proceed to write the markdown file**
+2. If deficient, `SendMessage` the agent specific corrections and ask it to revise
+3. If satisfactory, `SendMessage` the agent: **proceed to write the markdown file**
 4. The agent writes its per-talk markdown file
-5. Agent reports back with the relative file path
+5. The agent's final message reports the relative file path
 6. Mark the corresponding task as completed
 7. Provide the user with a brief highlight summary per talk as reports arrive
 
@@ -98,11 +92,9 @@ Once all agents have written their per-talk files, write the **overview document
 - For each talk: **full verbatim talk title**, presenter, group leader, key insight, core novelty, sharpest question
 - Relative markdown links to each talk's detailed file (e.g. `[Talk Title](./talk-01-presenter.md)`)
 
-## Phase 6: Cleanup
+## Phase 6: Wrap-up
 
-1. Shut down all agents via `SendMessage(type: "shutdown_request")`
-2. `TeamDelete` to clean up team resources
-3. Present final summary to the user
+Agents stop on their own once they have reported their file path, so there is nothing to shut down. Present the final summary to the user.
 
 ---
 
@@ -111,7 +103,7 @@ Once all agents have written their per-talk files, write the **overview document
 Below is the template for each research agent's prompt. Replace `{{placeholders}}` with actual values.
 
 ```
-You are a research specialist on a team preparing the host of the {{SESSION_NAME}} at the {{CONFERENCE_NAME}}. Your job is to deeply research ONE specific talk so the host can ask informed, intelligent questions — and then write a polished briefing markdown file.
+You are one of several research agents preparing the host of the {{SESSION_NAME}} at the {{CONFERENCE_NAME}}. Your job is to deeply research ONE specific talk so the host can ask informed, intelligent questions — and then write a polished briefing markdown file.
 
 ## Your Talk
 
@@ -181,9 +173,9 @@ For each question provide:
 - Risk level label
 - 1-2 sentence rationale: why this question is relevant, what you'd learn, and why it's at this risk level
 
-#### Step 6: Send Summary to Orchestrator
+#### Step 6: Return a Summary to the Orchestrator
 
-After completing your research, send a **concise summary** to the orchestrator (team lead) via SendMessage. Include:
+After completing your research, end this phase by returning a **concise summary** as your final message. Include:
 - Group leader name + institution
 - Presenter career stage
 - Core novelty of the talk (1-2 sentences)
@@ -191,7 +183,7 @@ After completing your research, send a **concise summary** to the orchestrator (
 - Confirmation that you have 10 questions ready
 - Any notable findings (e.g., connection to host's own work, interdisciplinary bridges)
 
-**Do NOT send the full report.** The orchestrator only needs enough to verify quality. Wait for confirmation before proceeding to Phase 2.
+**Do NOT return the full report.** The orchestrator only needs enough to verify quality. Do not write the file yet: the orchestrator will resume you with a message that either confirms or asks for corrections.
 
 ### PHASE 2: Write the Markdown File
 
@@ -263,7 +255,7 @@ _Rationale: why this is safe and what you'd learn._
 
 #### Step 2c: Report Back
 
-After writing the file, send the orchestrator:
+After writing the file, end with a final message to the orchestrator containing:
 - The relative path to the file
 - Confirmation that writing is complete
 
@@ -278,13 +270,12 @@ Use this checklist to track progress:
 
 - [ ] Read session description and extracted all talk details (title, presenter, authors) — including full verbatim titles
 - [ ] Confirmed talk list and output directory with user
-- [ ] Created team and tasks
-- [ ] Dispatched research agents (one per talk, in parallel)
-- [ ] (Optional) Broadcast cross-reference search instruction for any local literature library
-- [ ] Reviewed each agent's summary and confirmed write
+- [ ] Planned one agent per talk
+- [ ] Dispatched research agents (one per talk, in parallel, names or IDs noted)
+- [ ] (Optional) Included the cross-reference search step for any local literature library
+- [ ] Reviewed each agent's summary and confirmed the write via SendMessage
 - [ ] Collected file paths from all agents
 - [ ] Wrote overview README.md (with relative links + full talk titles)
-- [ ] Shut down agents and cleaned up team
 
 ## Lessons from Prior Runs
 
@@ -294,14 +285,14 @@ Use this checklist to track progress:
 - Noting likely career stages ("probably a PhD student") helps agents calibrate their search
 - Agents find genuinely useful connections when given enough context (e.g., identifying "bridge persons" between collaborating groups, finding the host's own papers)
 - Parallel dispatch saves significant time (~11 min per agent, all running simultaneously)
-- Broadcasting an optional cross-reference search as a follow-up lets agents finish their primary research first
+- Placing the optional cross-reference search last in the prompt lets agents finish their primary research first
 - Having agents write the markdown directly (after confirmation) avoids context window bloat on the orchestrator
 
 **Agent behavior patterns observed:**
 - Agents execute ~20-30 web searches per talk over ~11 minutes
 - They handle HTTP errors gracefully (403s, 404s) and retry with alternative queries
 - They naturally follow the systematic workflow: group leader → co-authors → publications → state of art → compile
-- They respond well to mid-run instructions (broadcast messages)
+- They respond well to targeted follow-up messages after their summary
 
 **Question risk calibration:**
 - The risk spectrum is from the HOST's perspective: "How confident am I that this question will be relevant to the actual talk?"
